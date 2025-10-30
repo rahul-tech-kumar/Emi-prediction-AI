@@ -63,9 +63,12 @@ df['affordability_ratio'] = df['bank_balance'] / df['monthly_salary']
 
 
 # Label encoding
-from sklearn.preprocessing import LabelEncoder
-le = LabelEncoder()
-df['emi_eligibility'] = le.fit_transform(df['emi_eligibility'])
+# from sklearn.preprocessing import LabelEncoder
+# le = LabelEncoder()
+# df['emi_eligibility'] = le.fit_transform(df['emi_eligibility'])
+label_map = {'Eligible': 2, 'Not_Eligible': 0, 'High_Risk': 1}
+df['emi_eligibility'] = df['emi_eligibility'].map(label_map)
+
 print("Unique labels:", df['emi_eligibility'].unique())
 
 
@@ -125,8 +128,8 @@ X_train_reg,X_test_reg, y_train_reg, y_test_reg = train_test_split(X,y_reg,test_
 
 
 # ------------------ MLflow Setup --------------------------------------------------------
-mlflow.set_tracking_uri("http://127.0.0.1:5005")
-mlflow.set_experiment("EMIPredict_Classification")
+mlflow.set_tracking_uri("http://127.0.0.1:5006")
+mlflow.set_experiment("EMI_Classification_Model")
 
 # ------------------ Models ---------------------------------------------------------------
 from sklearn.ensemble import RandomForestClassifier
@@ -144,7 +147,8 @@ models = [
     # ---------------------classification-------------------------
     ("Logistic Regression", {"solver": "liblinear", "random_state": 42}, LogisticRegression()),
     ("Random Forest", {"n_estimators": 200, "max_depth": 5, "random_state": 42, "n_jobs": -1}, RandomForestClassifier()),
-    ("XGBoost Classifier", {"n_estimators": 150, "max_depth": 6, "learning_rate": 0.1, "random_state": 42}, XGBClassifier()),
+    ("XGBoost Classifier", {"n_estimators": 150, "max_depth": 6, "learning_rate": 0.1, "random_state": 42,
+  "objective": "multi:softprob", "num_class": 3}, XGBClassifier()),
     ("Decision Tree Classifier", {"max_depth": None, "random_state": 42}, DecisionTreeClassifier())
 ]
 
@@ -379,11 +383,11 @@ os.makedirs("models", exist_ok=True)
 
 # Best classification model (reload from MLflow)
 best_cls_model = mlflow.sklearn.load_model(f"runs:/{best_run_id}/model")
-joblib.dump(best_cls_model, "models/best_emi_classifier.pkl")
+joblib.dump(best_cls_model, "models/bestmodel_emi_classifier.pkl")
 
 # Best regression model
 best_reg_model = mlflow.sklearn.load_model(f"runs:/{best_reg_run_id}/model")
-joblib.dump(best_reg_model, "models/best_emi_regressor.pkl")
+joblib.dump(best_reg_model, "models/bestmodel_emi_regressor.pkl")
 
 print("\n✅ Best models saved locally for Streamlit app in 'models/' folder.")
 
