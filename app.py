@@ -19,8 +19,8 @@ page = st.sidebar.radio("Go to", ["Home", "Prediction", "Data Explorer", "Model 
 # Load models (only once)
 @st.cache_resource
 def load_models():
-    classifier = joblib.load("models/best_emi_classifier.pkl")
-    regressor = joblib.load("models/best_emi_regressor.pkl")
+    classifier = joblib.load("models/bestmodel_emi_classifier.pkl")
+    regressor = joblib.load("models/bestmodel_emi_regressor.pkl")
     return classifier, regressor
 
 classifier, regressor = load_models()
@@ -182,13 +182,48 @@ if page == "Prediction":
 
     input_df = user_input_features()
 
+    # if st.button("Predict Eligibility"):
+    #     pred = classifier.predict(input_df)
+    #     st.success(f"Eligibility: {'✅ Eligible' if pred[0] else '❌ Not Eligible'}")
+    #     st.balloons()
     if st.button("Predict Eligibility"):
-        pred = classifier.predict(input_df)
-        st.success(f"Eligibility: {'✅ Eligible' if pred[0] else '❌ Not Eligible'}")
+        pred_proba = classifier.predict_proba(input_df)[0]
+        pred_class = np.argmax(pred_proba)
+
+        class_labels = {0: "❌ Not Eligible", 1: "🚨 High Risk", 2: "✅ Eligible"}
+        risk_colors = {0: "red", 1: "orange", 2: "green"}
+
+        st.markdown(f"### Prediction Result: <span style='color:{risk_colors[pred_class]}'>{class_labels[pred_class]}</span>", unsafe_allow_html=True)
+        st.progress(float(pred_proba[pred_class]))
+
+        st.info(f"""
+        **Model Confidence:**  
+        - Not Eligible: {pred_proba[0]:.2f}  
+        - High Risk: {pred_proba[1]:.2f}  
+        - Eligible: {pred_proba[2]:.2f}
+        """)
+
+        if pred_class == 0:
+            st.error("💸 Applicant is not eligible due to low financial stability or insufficient income.")
+        elif pred_class == 1:
+            st.warning("⚠️ Applicant is in the High Risk category — EMI approval unlikely without additional documents.")
+        else:
+            st.success("✅ Applicant is financially strong and likely eligible for EMI approval.")
+            st.balloons()
+            
+        st.subheader("📊 Risk Probability Distribution")
+        st.bar_chart({
+            "Not Eligible": [pred_proba[0]],
+            "High Risk": [pred_proba[1]],
+            "Eligible": [pred_proba[2]]
+        })
+
+
 
     if st.button("Predict Maximum EMI"):
         emi_pred = regressor.predict(input_df)
         st.success(f"Predicted Maximum EMI: ₹{emi_pred[0]:,.2f}")
+        st.balloons()
 
 
 
@@ -258,7 +293,7 @@ elif page=="Model Monitor":
     # ------------------ CLASSIFICATION SECTION -------------------------------------
     st.subheader("🎯 Classification Model Performance")
 
-    exp_cls = client.get_experiment_by_name("EMIPredict_Classification")
+    exp_cls = client.get_experiment_by_name("EMI_Classification_Model")
 
     if exp_cls is not None:
         runs_cls = client.search_runs(exp_cls.experiment_id)
